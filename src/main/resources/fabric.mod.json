@@ -1,0 +1,42 @@
+{
+	"schemaVersion": 1,
+	"id": "auto-eater",
+	"version": "${version}",
+	"name": "Auto Eater",
+	"description": "I am going to auto-eat all your food",
+	"authors": [
+		"Nicolas Reig Serrano"
+	],
+	"contact": {
+		
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/auto-eater/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.autoeater.AutoEaterClient"
+		]
+	},
+	"mixins": [
+		"auto-eater.mixins.json",
+		{
+			"config": "auto-eater.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.10",
+		"minecraft": "~1.21.4",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"mod-menu": "~13.0.2"
+	},
+	
+	"custom": {
+	  "modmenu:apiVersion": 7,
+	  "modmenu:configScreenFactory": "com.autoeater.AutoEaterModMenu"
+	}
+}

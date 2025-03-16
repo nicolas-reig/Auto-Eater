@@ -11,8 +11,9 @@ base {
 }
 
 repositories {
-    // Loom automatically adds essential repositories for Minecraft.
-    // Add additional repositories for mod dependencies:
+	
+    maven { url "https://maven.shedaniel.me/" }
+    maven { url "https://maven.terraformersmc.com/releases/" }
 }
 
 loom {
@@ -34,6 +35,8 @@ dependencies {
 
     // Fabric API (optional but recommended)
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    include(modApi "me.shedaniel.cloth:cloth-config-fabric:17.0.144")
+    modApi "com.terraformersmc:modmenu:13.0.3"
 }
 
 processResources {

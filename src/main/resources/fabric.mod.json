@@ -8,7 +8,9 @@
 		"Nicolas Reig Serrano"
 	],
 	"contact": {
-		
+		"homepage": "https://www.curseforge.com/minecraft/mc-mods/auto-eater",
+		"issues": "https://github.com/nicolas-reig/Auto-Eater/issues",
+		"sources": "https://github.com/nicolas-reig/Auto-Eater"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/auto-eater/icon.png",
@@ -16,7 +18,11 @@
 	"entrypoints": {
 		"client": [
 			"com.autoeater.AutoEaterClient"
-		]
+		],		
+		"modmenu": [
+		        "com.autoeater.ModMenuIntegration"
+		    ]
+		
 	},
 	"mixins": [
 		"auto-eater.mixins.json",
@@ -33,10 +39,5 @@
 	},
 	"suggests": {
 		"mod-menu": "~13.0.2"
-	},
-	
-	"custom": {
-	  "modmenu:apiVersion": 7,
-	  "modmenu:configScreenFactory": "com.autoeater.AutoEaterModMenu"
 	}
 }

@@ -15,7 +15,7 @@ public class AutoEaterClient implements ClientModInitializer {
         String key = "minecraft:consumable=>class_10124[consumeSeconds=";
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player == null) return;
+            if (client.player == null || AutoEaterConfig.killSwitch) return;
 
             // 1) If we are currently eating, finish that first.
             if (eating[0]) {

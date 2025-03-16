@@ -8,7 +8,7 @@ public class AutoEaterClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-
+    	AutoEaterConfig.loadConfig();
         final int[] consumeTicks = {0};
         final boolean[] eating = {false};
         final int[] previousSlot = {0};

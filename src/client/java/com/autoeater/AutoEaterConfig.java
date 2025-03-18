@@ -25,8 +25,8 @@ public class AutoEaterConfig {
 
     public static boolean killSwitch = false;
     public static int threshold = 6;
-    // Blacklist stores vanilla items as "apple" (without "minecraft:") and mod items with full id.
-    public static List<String> blacklist = new ArrayList<>(List.of(
+    // Default blacklist stored as full item paths for vanilla.
+    public static final List<String> DEFAULT_BLACKLIST = List.of(
             "rotten_flesh",
             "golden_apple",
             "enchanted_golden_apple",
@@ -34,12 +34,14 @@ public class AutoEaterConfig {
             "suspicious_stew",
             "chorus_fruit",
             "poisonous_potato"
-    ));
+    );
+    // The current blacklist; vanilla items are stored without namespace and mod items with full id.
+    public static List<String> blacklist = new ArrayList<>(DEFAULT_BLACKLIST);
 
     public static boolean isBlacklisted(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
         Identifier id = Registries.ITEM.getId(stack.getItem());
-        // For vanilla items, compare using path; for mod items, use full id.
+        // For vanilla items, compare using the path; for mod items, compare the full id.
         if ("minecraft".equals(id.getNamespace())) {
             return blacklist.contains(id.getPath());
         } else {
@@ -105,22 +107,31 @@ public class AutoEaterConfig {
                 .setSaveConsumer(val -> killSwitch = val)
                 .build());
 
-        general.addEntry(eb.startIntSlider(Text.literal("Hunger threshold"), threshold, 1, 20)
-                .setDefaultValue(6)
-                .setSaveConsumer(val -> threshold = val)
-                .build());
-
+        general.addEntry(eb.startIntSlider(Text.literal("Hunger threshold"), threshold, 0, 20).setDefaultValue(0)
+				.setTextGetter(value -> {
+					if (value == 0) {
+						return Text.literal("Auto (min. nutrition)");
+					} else if (value == 20) {
+						return Text.literal("Auto (max. nutrition)");
+					} else {
+						return Text.literal(String.valueOf(value));
+					}
+				}).setTooltip(Text.literal("'Auto (min./max.)' eats the least/most nutritious food."))
+				.setSaveConsumer(val -> threshold = val).build());
+        
+		// Use the default blacklist for the reset functionality.
         List<String> tempList = new ArrayList<>(blacklist);
         general.addEntry(eb.startStrList(Text.literal("Blacklist"), tempList)
-                .setDefaultValue(tempList)
+                .setDefaultValue(DEFAULT_BLACKLIST)
+                .setTooltip(Text.literal("Food you Don't want to auto-eat."),Text.literal("For modded food, use mod_id:food_item."))
                 .setSaveConsumer(list -> {
                     List<String> validated = list.stream()
-                            .map(String::trim)                    // 1. Trim
-                            .filter(s -> !s.isEmpty())             // 2. Check if empty
-                            .map(s -> s.startsWith("minecraft:") ? s.substring("minecraft:".length()) : s) // 3. Remove "minecraft:"
-                            .distinct()                          // 4. Remove duplicates
+                            .map(String::trim)                                  // 1. Trim
+                            .filter(s -> !s.isEmpty())                           // 2. Remove empty strings
+                            .map(s -> s.startsWith("minecraft:") ? s.substring("minecraft:".length()) : s) // 3. Remove "minecraft:" prefix for vanilla
+                            .distinct()                                        // 4. Remove duplicates
                             .filter(s -> {
-                                // 5. If ":" exists, check mod id validity
+                                // 5. If ":" exists, check modid validity
                                 if (s.contains(":")) {
                                     String[] parts = s.split(":", 2);
                                     String modid = parts[0];

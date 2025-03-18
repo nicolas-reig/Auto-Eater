@@ -24,13 +24,7 @@
 		    ]
 		
 	},
-	"mixins": [
-		"auto-eater.mixins.json",
-		{
-			"config": "auto-eater.client.mixins.json",
-			"environment": "client"
-		}
-	],
+	
 	"depends": {
 		"fabricloader": ">=0.16.10",
 		"minecraft": "~1.21.4",

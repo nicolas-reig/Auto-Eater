@@ -21,7 +21,6 @@ loom {
 
     mods {
         "auto-eater" {
-            sourceSet sourceSets.main
             sourceSet sourceSets.client
         }
     }

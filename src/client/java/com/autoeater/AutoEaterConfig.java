@@ -25,6 +25,9 @@ public class AutoEaterConfig {
 
     public static boolean killSwitch = false;
     public static int threshold = 6;
+    // Toggle hotkey: only a single character is allowed.
+    public static String toggleKey = ",";
+
     // Default blacklist stored as full item paths for vanilla.
     public static final List<String> DEFAULT_BLACKLIST = List.of(
             "rotten_flesh",
@@ -35,13 +38,12 @@ public class AutoEaterConfig {
             "chorus_fruit",
             "poisonous_potato"
     );
-    // The current blacklist; vanilla items are stored without namespace and mod items with full id.
+    // Current blacklist; vanilla items use only the path while mod items use full id.
     public static List<String> blacklist = new ArrayList<>(DEFAULT_BLACKLIST);
 
     public static boolean isBlacklisted(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
         Identifier id = Registries.ITEM.getId(stack.getItem());
-        // For vanilla items, compare using the path; for mod items, compare the full id.
         if ("minecraft".equals(id.getNamespace())) {
             return blacklist.contains(id.getPath());
         } else {
@@ -59,8 +61,10 @@ public class AutoEaterConfig {
         }
         try {
             String json = Files.readString(CONFIG_PATH);
-            Data data = GSON.fromJson(json, Data.class);
-            if (data != null) apply(data);
+            Data configData = GSON.fromJson(json, Data.class);
+            if (configData != null) {
+                apply(configData);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -68,70 +72,84 @@ public class AutoEaterConfig {
 
     public static void saveConfig() {
         try {
-            Data data = toData();
-            Files.writeString(CONFIG_PATH, GSON.toJson(data));
+            Data configData = toData();
+            Files.writeString(CONFIG_PATH, GSON.toJson(configData));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private static Data toData() {
-        Data d = new Data();
-        d.killSwitch = killSwitch;
-        d.threshold = threshold;
-        d.blacklist = new ArrayList<>(blacklist);
-        return d;
+        Data data = new Data();
+        data.killSwitch = killSwitch;
+        data.threshold = threshold;
+        data.toggleKey = toggleKey;
+        data.blacklist = new ArrayList<>(blacklist);
+        return data;
     }
 
-    private static void apply(Data d) {
-        killSwitch = d.killSwitch;
-        threshold = d.threshold;
-        blacklist = new ArrayList<>(d.blacklist);
+    private static void apply(Data data) {
+        killSwitch = data.killSwitch;
+        threshold = data.threshold;
+        toggleKey = (data.toggleKey != null && !data.toggleKey.isEmpty()) ? String.valueOf(data.toggleKey.charAt(0)) : ",";
+        blacklist = new ArrayList<>(data.blacklist);
     }
 
     private static class Data {
         boolean killSwitch;
         int threshold;
+        String toggleKey;
         List<String> blacklist;
     }
-
+    
+    //Builds and returns the configuration screen.
     public static Screen getConfigScreen(Screen parent) {
         ConfigBuilder builder = ConfigBuilder.create()
                 .setParentScreen(parent)
                 .setTitle(Text.literal("Auto Eater Settings"));
-        ConfigCategory general = builder.getOrCreateCategory(Text.literal("General"));
-        ConfigEntryBuilder eb = builder.entryBuilder();
 
-        general.addEntry(eb.startBooleanToggle(Text.literal("Kill Switch"), killSwitch)
+        ConfigCategory general = builder.getOrCreateCategory(Text.literal("General"));
+        ConfigEntryBuilder entryBuilder = builder.entryBuilder();
+
+        general.addEntry(entryBuilder.startBooleanToggle(Text.literal("Kill Switch"), killSwitch)
                 .setDefaultValue(false)
                 .setSaveConsumer(val -> killSwitch = val)
                 .build());
 
-        general.addEntry(eb.startIntSlider(Text.literal("Hunger threshold"), threshold, 0, 20).setDefaultValue(0)
-				.setTextGetter(value -> {
-					if (value == 0) {
-						return Text.literal("Auto (min. nutrition)");
-					} else if (value == 20) {
-						return Text.literal("Auto (max. nutrition)");
-					} else {
-						return Text.literal(String.valueOf(value));
-					}
-				}).setTooltip(Text.literal("'Auto (min./max.)' eats the least/most nutritious food."))
-				.setSaveConsumer(val -> threshold = val).build());
-        
-		// Use the default blacklist for the reset functionality.
+        general.addEntry(entryBuilder.startStrField(Text.literal("Toggle Hotkey"), toggleKey)
+                .setDefaultValue(",")
+                .setSaveConsumer(val -> toggleKey = (val != null && !val.isEmpty()) ? String.valueOf(val.charAt(0)) : ",")
+                .setTooltip(Text.literal("Enter a single character to toggle Auto Eater."))
+                .build());
+
+        general.addEntry(entryBuilder.startIntSlider(Text.literal("Hunger threshold"), threshold, 0, 20)
+                .setDefaultValue(0)
+                .setTextGetter(value -> {
+                    if (value == 0) {
+                        return Text.literal("Auto (min. nutrition)");
+                    } else if (value == 20) {
+                        return Text.literal("Auto (max. nutrition)");
+                    } else {
+                        return Text.literal(String.valueOf(value));
+                    }
+                })
+                .setTooltip(Text.literal("'Auto (min./max.)' eats the least/most nutritious food."))
+                .setSaveConsumer(val -> threshold = val)
+                .build());
+
+        // Create a temporary list for blacklist entries.
         List<String> tempList = new ArrayList<>(blacklist);
-        general.addEntry(eb.startStrList(Text.literal("Blacklist"), tempList)
+        general.addEntry(entryBuilder.startStrList(Text.literal("Blacklist"), tempList)
                 .setDefaultValue(DEFAULT_BLACKLIST)
-                .setTooltip(Text.literal("Food you Don't want to auto-eat."),Text.literal("For modded food, use mod_id:food_item."))
+                .setTooltip(Text.literal("Food you Don't want to auto-eat."),
+                        Text.literal("For modded food, use mod_id:food_item."))
                 .setSaveConsumer(list -> {
                     List<String> validated = list.stream()
-                            .map(String::trim)                                  // 1. Trim
-                            .filter(s -> !s.isEmpty())                           // 2. Remove empty strings
-                            .map(s -> s.startsWith("minecraft:") ? s.substring("minecraft:".length()) : s) // 3. Remove "minecraft:" prefix for vanilla
-                            .distinct()                                        // 4. Remove duplicates
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .map(s -> s.startsWith("minecraft:") ? s.substring("minecraft:".length()) : s)
+                            .distinct()
                             .filter(s -> {
-                                // 5. If ":" exists, check modid validity
                                 if (s.contains(":")) {
                                     String[] parts = s.split(":", 2);
                                     String modid = parts[0];
@@ -140,7 +158,6 @@ public class AutoEaterConfig {
                                 return true;
                             })
                             .filter(s -> {
-                                // 6. Validate the item; for vanilla, prepend "minecraft:".
                                 Identifier id = s.contains(":")
                                         ? Identifier.tryParse(s)
                                         : Identifier.tryParse("minecraft:" + s);

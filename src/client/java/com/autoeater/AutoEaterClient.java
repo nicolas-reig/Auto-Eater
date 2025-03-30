@@ -78,7 +78,7 @@ public class AutoEaterClient implements ClientModInitializer {
             state.consumeTicks--;
         } else {
             // Finished eating: restore previous slot and release the use key.
-            client.player.getInventory().selectedSlot = state.previousSlot;
+            client.player.getInventory().setSelectedSlot(state.previousSlot);
             state.eating = false;
             client.options.useKey.setPressed(false);
         }
@@ -131,9 +131,9 @@ public class AutoEaterClient implements ClientModInitializer {
                         && foodNutrition != state.threshold) {
                     continue;
                 }
-                state.previousSlot = client.player.getInventory().selectedSlot;
+                state.previousSlot = client.player.getInventory().getSelectedSlot();
                 state.consumeTicks = stack.getComponents().get(DataComponentTypes.CONSUMABLE).getConsumeTicks();
-                client.player.getInventory().selectedSlot = slot;
+                client.player.getInventory().setSelectedSlot(slot);;
                 state.eating = true;
                 client.options.useKey.setPressed(true);
                 state.consumeTicks--;

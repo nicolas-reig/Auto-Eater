@@ -26,7 +26,7 @@ public class AutoEaterClient implements ClientModInitializer {
         AutoEaterConfig.loadConfig();
 
         TickState state = new TickState();
-        state.consumeTicks = 0;
+        state.eatStartCountMarker = 0;
         state.eating = false;
         state.previousSlot = 0;
         state.threshold = AutoEaterConfig.threshold;
@@ -66,7 +66,7 @@ public class AutoEaterClient implements ClientModInitializer {
     // Holds mutable state between ticks.
     
     private static class TickState {
-        int consumeTicks;
+        int eatStartCountMarker;
         boolean eating;
         int previousSlot;
         int threshold;
@@ -90,13 +90,26 @@ public class AutoEaterClient implements ClientModInitializer {
 
     //Handles the ongoing eating process.
     private static void handleEating(MinecraftClient client, TickState state) {
-        if (state.consumeTicks > 0) {
-            client.options.useKey.setPressed(true);
-            state.consumeTicks--;
-        } else {
-            // Finished eating: restore previous slot and release the use key.
+        client.options.useKey.setPressed(true);
+
+        ItemStack heldStack = client.player.getMainHandStack();
+
+        // First tick of this eating cycle: store the initial held stack size.
+        // `state.eatStartCountMarker` is initialized in tryAutoEat; reuse it to avoid widening TickState.
+        if (state.eatStartCountMarker > 0) {
+            state.eatStartCountMarker = -heldStack.getCount();
+            return;
+        }
+
+        int initialCount = Math.max(1, -state.eatStartCountMarker);
+        boolean consumedOne = heldStack.getCount() < initialCount;
+        boolean heldItemChanged = !hasFoodComponent(heldStack);
+
+        if (consumedOne || heldItemChanged) {
+            // Consumption confirmed by inventory change: restore previous slot and stop holding use.
             client.player.getInventory().setSelectedSlot(state.previousSlot);
             state.eating = false;
+            state.eatStartCountMarker = 0;
             client.options.useKey.setPressed(false);
         }
     }
@@ -205,11 +218,11 @@ public class AutoEaterClient implements ClientModInitializer {
                     continue;
                 }
                 state.previousSlot = client.player.getInventory().getSelectedSlot();
-                state.consumeTicks = stack.getComponents().get(DataComponentTypes.CONSUMABLE).getConsumeTicks();
+                state.eatStartCountMarker = stack.getComponents().get(DataComponentTypes.CONSUMABLE).getConsumeTicks();
                 client.player.getInventory().setSelectedSlot(slot);;
                 state.eating = true;
                 client.options.useKey.setPressed(true);
-                state.consumeTicks--;
+                state.eatStartCountMarker--;
                 break;
             }
         }

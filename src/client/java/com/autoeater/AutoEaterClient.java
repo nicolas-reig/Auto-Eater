@@ -2,12 +2,22 @@ package com.autoeater;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.block.AbstractBlock;
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 import org.lwjgl.glfw.GLFW;
+
+import java.lang.reflect.Method;
 
 public class AutoEaterClient implements ClientModInitializer {
 
@@ -23,15 +33,22 @@ public class AutoEaterClient implements ClientModInitializer {
         state.toggleKeyPressed = false;
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player == null) return;
-
+            if (client.player == null || client.world == null) return;
+            
             processToggleKey(client, state);
-            if (AutoEaterConfig.killSwitch) return;
 
             if (state.eating) {
                 handleEating(client, state);
                 return;
             }
+            
+            if (AutoEaterConfig.killSwitch) return;
+            
+            if (client.options.useKey.isPressed()) return;
+
+            if (isLookingAtUsableBlock(client)) return;
+
+            if (isLookingAtEntity(client)) return;
 
             int hunger = client.player.getHungerManager().getFoodLevel();
             updateThreshold(client, state);
@@ -117,6 +134,62 @@ public class AutoEaterClient implements ClientModInitializer {
             }
             default -> state.threshold = AutoEaterConfig.threshold;
         }
+    }
+    
+    private static boolean isLookingAtUsableBlock(MinecraftClient client){
+        HitResult hitResult = client.crosshairTarget;
+        if (hitResult == null) return false;
+
+        if (hitResult.getType() == HitResult.Type.BLOCK) {
+            BlockHitResult blockHitResult = (BlockHitResult) hitResult;
+            BlockPos blockPos = blockHitResult.getBlockPos();
+            BlockState blockState = client.world.getBlockState(blockPos);
+            if (blockState.isAir()) return false;
+
+            if (blockState.createScreenHandlerFactory(client.world, blockPos) != null) {
+                return true;
+            }
+
+            Class<?> blockClass = blockState.getBlock().getClass();
+            while (blockClass != null && AbstractBlock.class.isAssignableFrom(blockClass)) {
+                try {
+                    Method onUse = blockClass.getDeclaredMethod(
+                            "onUse",
+                            BlockState.class,
+                            World.class,
+                            BlockPos.class,
+                            PlayerEntity.class,
+                            BlockHitResult.class
+                    );
+                    if (onUse.getDeclaringClass() != AbstractBlock.class) return true;
+                } catch (NoSuchMethodException ignored) {
+                }
+
+                try {
+                    Method onUseWithItem = blockClass.getDeclaredMethod(
+                            "onUseWithItem",
+                            ItemStack.class,
+                            BlockState.class,
+                            World.class,
+                            BlockPos.class,
+                            PlayerEntity.class,
+                            Hand.class,
+                            BlockHitResult.class
+                    );
+                    if (onUseWithItem.getDeclaringClass() != AbstractBlock.class) return true;
+                } catch (NoSuchMethodException ignored) {
+                }
+
+                if (blockClass == AbstractBlock.class) break;
+                blockClass = blockClass.getSuperclass();
+            }
+        }
+        return false;
+    }
+
+    private static boolean isLookingAtEntity(MinecraftClient client){
+        HitResult hitResult = client.crosshairTarget;
+        return hitResult.getType() == HitResult.Type.ENTITY;
     }
 
 

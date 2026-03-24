@@ -47,6 +47,14 @@ public class AutoEaterClient implements ClientModInitializer {
 
             if (cancelForManualUse(client, state)) return;
 
+            if (client.currentScreen != null) {
+                if (state.eating) {
+                    stopEating(client, state);
+                }
+                updatePlayerState(client, state);
+                return;
+            }
+
             if (state.eating) {
                 handleEating(client, state);
                 updatePlayerState(client, state);
@@ -107,6 +115,7 @@ public class AutoEaterClient implements ClientModInitializer {
     
     private static class TickState {
         boolean eating;
+        boolean switchedSlotForEating;
         int previousSlot;
         int foodSlot;
         int initialFoodCount;
@@ -222,9 +231,13 @@ public class AutoEaterClient implements ClientModInitializer {
     }
 
     private static boolean cancelForManualUse(MinecraftClient client, TickState state) {
-        ItemStack heldStack = client.player.getMainHandStack();
+        ItemStack mainHandStack = client.player.getMainHandStack();
+        ItemStack offHandStack = client.player.getOffHandStack();
 
-        if (!state.eating && client.options.useKey.isPressed() && !hasFoodComponent(heldStack)) {
+        if (!state.eating
+                && client.options.useKey.isPressed()
+                && !hasFoodComponent(mainHandStack)
+                && !hasFoodComponent(offHandStack)) {
             cancelEating();
             updatePlayerState(client, state);
             return true;
@@ -353,6 +366,7 @@ public class AutoEaterClient implements ClientModInitializer {
                 state.previousSlot = client.player.getInventory().getSelectedSlot();
                 state.foodSlot = slot;
                 state.initialFoodCount = stack.getCount();
+                state.switchedSlotForEating = state.previousSlot != slot;
                 state.startedUsingItem = false;
                 client.player.getInventory().setSelectedSlot(slot);
                 state.eating = true;
@@ -365,11 +379,14 @@ public class AutoEaterClient implements ClientModInitializer {
     private static void stopEating(MinecraftClient client, TickState state) {
         client.options.useKey.setPressed(false);
 
-        if (client.player != null && client.player.getInventory().getSelectedSlot() == state.foodSlot) {
+        if (client.player != null
+                && state.switchedSlotForEating
+                && client.player.getInventory().getSelectedSlot() == state.foodSlot) {
             client.player.getInventory().setSelectedSlot(state.previousSlot);
         }
 
         state.eating = false;
+        state.switchedSlotForEating = false;
         state.foodSlot = 0;
         state.initialFoodCount = 0;
         state.startedUsingItem = false;

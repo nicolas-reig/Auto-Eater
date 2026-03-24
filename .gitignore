@@ -9,3 +9,4 @@ eclipse/
 .project
 build.number
 .gradle
+.vscode/*

@@ -8,7 +8,7 @@
 		"Nicolas Reig Serrano"
 	],
 	"contact": {
-		"homepage": "https://www.curseforge.com/minecraft/mc-mods/auto-eater",
+		"homepage": "https://modrinth.com/mod/auto-eater/versions",
 		"issues": "https://github.com/nicolas-reig/Auto-Eater/issues",
 		"sources": "https://github.com/nicolas-reig/Auto-Eater"
 	},
@@ -27,7 +27,7 @@
 	
 	"depends": {
 		"fabricloader": ">=0.18.4",
-		"minecraft": "~1.21.7",
+		"minecraft": "~1.21.11",
 		"java": ">=21",
 		"fabric-api": "*"
 	},

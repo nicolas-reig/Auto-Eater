@@ -220,7 +220,9 @@ public class AutoEaterClient implements ClientModInitializer {
     }
 
     private static boolean cancelForManualUse(MinecraftClient client, TickState state) {
-        if (!state.eating && client.options.useKey.isPressed()) {
+        ItemStack heldStack = client.player.getMainHandStack();
+
+        if (!state.eating && client.options.useKey.isPressed() && !hasFoodComponent(heldStack)) {
             cancelEating();
             updatePlayerState(client, state);
             return true;

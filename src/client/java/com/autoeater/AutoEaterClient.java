@@ -20,45 +20,83 @@ import org.lwjgl.glfw.GLFW;
 import java.lang.reflect.Method;
 
 public class AutoEaterClient implements ClientModInitializer {
+    private static TickState activeState;
 
     @Override
     public void onInitializeClient() {
         AutoEaterConfig.loadConfig();
 
         TickState state = new TickState();
-        state.eatStartCountMarker = 0;
-        state.eating = false;
-        state.previousSlot = 0;
         state.threshold = AutoEaterConfig.threshold;
-        state.toggleKeyPressed = false;
+        activeState = state;
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
-            
+            state.clientTicks++;
+            initializePlayerState(client, state);
+
             processToggleKey(client, state);
+
+            if (cancelForDamage(client, state)) return;
+
+            if (cancelForScrollAway(client, state)) return;
+
+            if (cancelForManualAttack(client, state)) return;
+
+            if (cancelForManualUse(client, state)) return;
 
             if (state.eating) {
                 handleEating(client, state);
+                updatePlayerState(client, state);
                 return;
             }
-            
-            if (AutoEaterConfig.killSwitch) return;
-            
-            if (client.options.useKey.isPressed()) return;
 
-            if (isLookingAtUsableBlock(client)) return;
+            if (isCancelActive(state)) {
+                updatePlayerState(client, state);
+                return;
+            }
 
-            if (isLookingAtEntity(client)) return;
+            if (AutoEaterConfig.killSwitch) {
+                updatePlayerState(client, state);
+                return;
+            }
+
+            if (client.options.useKey.isPressed()) {
+                updatePlayerState(client, state);
+                return;
+            }
+
+            if (isLookingAtUsableBlock(client)) {
+                updatePlayerState(client, state);
+                return;
+            }
+
+            if (isLookingAtEntity(client)) {
+                updatePlayerState(client, state);
+                return;
+            }
+
+            if (client.options.attackKey.isPressed()) {
+                updatePlayerState(client, state);
+                return;
+            }
+
+            if (client.options.useKey.isPressed()) {
+                updatePlayerState(client, state);
+                return;
+            }
 
             int hunger = client.player.getHungerManager().getFoodLevel();
             updateThreshold(client, state);
 
             // Do nothing if hunger is above threshold or if the attack key is pressed.
-            if (hunger > 20 - state.threshold || client.options.attackKey.isPressed()) {
+            if (hunger > 20 - state.threshold) {
+                updatePlayerState(client, state);
                 return;
             }
 
             tryAutoEat(client, state);
+            updatePlayerState(client, state);
         });
     }
 
@@ -66,11 +104,34 @@ public class AutoEaterClient implements ClientModInitializer {
     // Holds mutable state between ticks.
     
     private static class TickState {
-        int eatStartCountMarker;
         boolean eating;
         int previousSlot;
+        int foodSlot;
+        int initialFoodCount;
         int threshold;
+        long cancelUntilTick;
+        long clientTicks;
+        float lastCombinedHealth;
+        boolean startedUsingItem;
         boolean toggleKeyPressed;
+    }
+
+    public static void cancelEating() {
+        TickState state = activeState;
+        if (state == null) return;
+
+        int cooldownTicks = getConfiguredCancelTicks();
+        state.cancelUntilTick = Math.max(state.cancelUntilTick, state.clientTicks + cooldownTicks);
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null) {
+            stopEating(client, state);
+        }
+    }
+
+    public static boolean isEatingCancelled() {
+        TickState state = activeState;
+        return state != null && isCancelActive(state);
     }
 
     
@@ -90,28 +151,96 @@ public class AutoEaterClient implements ClientModInitializer {
 
     //Handles the ongoing eating process.
     private static void handleEating(MinecraftClient client, TickState state) {
-        client.options.useKey.setPressed(true);
-
-        ItemStack heldStack = client.player.getMainHandStack();
-
-        // First tick of this eating cycle: store the initial held stack size.
-        // `state.eatStartCountMarker` is initialized in tryAutoEat; reuse it to avoid widening TickState.
-        if (state.eatStartCountMarker > 0) {
-            state.eatStartCountMarker = -heldStack.getCount();
+        if (isCancelActive(state) || AutoEaterConfig.killSwitch) {
+            stopEating(client, state);
             return;
         }
 
-        int initialCount = Math.max(1, -state.eatStartCountMarker);
-        boolean consumedOne = heldStack.getCount() < initialCount;
-        boolean heldItemChanged = !hasFoodComponent(heldStack);
-
-        if (consumedOne || heldItemChanged) {
-            // Consumption confirmed by inventory change: restore previous slot and stop holding use.
-            client.player.getInventory().setSelectedSlot(state.previousSlot);
-            state.eating = false;
-            state.eatStartCountMarker = 0;
-            client.options.useKey.setPressed(false);
+        if (client.player.getInventory().getSelectedSlot() != state.foodSlot) {
+            stopEating(client, state);
+            return;
         }
+
+        ItemStack heldStack = client.player.getMainHandStack();
+
+        if (heldStack.isEmpty() || !hasFoodComponent(heldStack)) {
+            stopEating(client, state);
+            return;
+        }
+
+        client.options.useKey.setPressed(true);
+
+        if (client.player.isUsingItem()) {
+            state.startedUsingItem = true;
+        } else if (state.startedUsingItem) {
+            stopEating(client, state);
+            return;
+        }
+
+        if (heldStack.getCount() < state.initialFoodCount) {
+            stopEating(client, state);
+        }
+    }
+
+    private static void initializePlayerState(MinecraftClient client, TickState state) {
+        if (state.clientTicks != 1) {
+            return;
+        }
+
+        state.lastCombinedHealth = getCombinedHealth(client.player);
+    }
+
+    private static boolean cancelForDamage(MinecraftClient client, TickState state) {
+        float combinedHealth = getCombinedHealth(client.player);
+        if (combinedHealth < state.lastCombinedHealth) {
+            cancelEating();
+            updatePlayerState(client, state);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean cancelForScrollAway(MinecraftClient client, TickState state) {
+        int selectedSlot = client.player.getInventory().getSelectedSlot();
+        if (state.eating && selectedSlot != state.foodSlot) {
+            cancelEating();
+            updatePlayerState(client, state);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean cancelForManualAttack(MinecraftClient client, TickState state) {
+        if (client.options.attackKey.isPressed()) {
+            cancelEating();
+            updatePlayerState(client, state);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean cancelForManualUse(MinecraftClient client, TickState state) {
+        if (!state.eating && client.options.useKey.isPressed()) {
+            cancelEating();
+            updatePlayerState(client, state);
+            return true;
+        }
+        return false;
+    }
+
+    private static void updatePlayerState(MinecraftClient client, TickState state) {
+        state.lastCombinedHealth = getCombinedHealth(client.player);
+    }
+
+    private static float getCombinedHealth(PlayerEntity player) {
+        return player.getHealth() + player.getAbsorptionAmount();
+    }
+
+    private static int getConfiguredCancelTicks() {
+        if (AutoEaterConfig.cancelCooldownSeconds <= 0) {
+            return 0;
+        }
+        return AutoEaterConfig.cancelCooldownSeconds * 20;
     }
 
     //Updates the dynamic threshold in auto modes.
@@ -218,14 +347,32 @@ public class AutoEaterClient implements ClientModInitializer {
                     continue;
                 }
                 state.previousSlot = client.player.getInventory().getSelectedSlot();
-                state.eatStartCountMarker = stack.getComponents().get(DataComponentTypes.CONSUMABLE).getConsumeTicks();
-                client.player.getInventory().setSelectedSlot(slot);;
+                state.foodSlot = slot;
+                state.initialFoodCount = stack.getCount();
+                state.startedUsingItem = false;
+                client.player.getInventory().setSelectedSlot(slot);
                 state.eating = true;
                 client.options.useKey.setPressed(true);
-                state.eatStartCountMarker--;
                 break;
             }
         }
+    }
+
+    private static void stopEating(MinecraftClient client, TickState state) {
+        client.options.useKey.setPressed(false);
+
+        if (client.player != null && client.player.getInventory().getSelectedSlot() == state.foodSlot) {
+            client.player.getInventory().setSelectedSlot(state.previousSlot);
+        }
+
+        state.eating = false;
+        state.foodSlot = 0;
+        state.initialFoodCount = 0;
+        state.startedUsingItem = false;
+    }
+
+    private static boolean isCancelActive(TickState state) {
+        return state.clientTicks < state.cancelUntilTick;
     }
 
 

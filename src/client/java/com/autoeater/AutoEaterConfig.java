@@ -19,12 +19,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class AutoEaterConfig {
 
     public static boolean killSwitch = false;
-    public static int threshold = 6;
+    public static int threshold = 0;
+    public static int cancelCooldownSeconds = 7;
     // Toggle hotkey: only a single character is allowed.
     public static String toggleKey = ",";
 
@@ -83,6 +86,7 @@ public class AutoEaterConfig {
         Data data = new Data();
         data.killSwitch = killSwitch;
         data.threshold = threshold;
+        data.cancelCooldownSeconds = cancelCooldownSeconds;
         data.toggleKey = toggleKey;
         data.blacklist = new ArrayList<>(blacklist);
         return data;
@@ -91,13 +95,23 @@ public class AutoEaterConfig {
     private static void apply(Data data) {
         killSwitch = data.killSwitch;
         threshold = data.threshold;
-        toggleKey = (data.toggleKey != null && !data.toggleKey.isEmpty()) ? String.valueOf(data.toggleKey.charAt(0)) : ",";
-        blacklist = new ArrayList<>(data.blacklist);
+        cancelCooldownSeconds = Math.max(0, data.cancelCooldownSeconds);
+        if (data.toggleKey != null && !data.toggleKey.isEmpty()) {
+            toggleKey = String.valueOf(data.toggleKey.charAt(0));
+        } else {
+            toggleKey = ",";
+        }
+        if (data.blacklist != null) {
+            blacklist = new ArrayList<>(data.blacklist);
+        } else {
+            blacklist = new ArrayList<>(DEFAULT_BLACKLIST);
+        }
     }
 
     private static class Data {
         boolean killSwitch;
         int threshold;
+        int cancelCooldownSeconds;
         String toggleKey;
         List<String> blacklist;
     }
@@ -135,6 +149,32 @@ public class AutoEaterConfig {
                 })
                 .setTooltip(Text.literal("'Auto (min./max.)' eats the least/most nutritious food."))
                 .setSaveConsumer(val -> threshold = val)
+                .build());
+
+        general.addEntry(entryBuilder.startIntSlider(Text.literal("Cancel cooldown"), cancelCooldownSeconds, 0, 30)
+                .setDefaultValue(7)
+                .setTextGetter(new Function<Integer, Text>() {
+                    @Override
+                    public Text apply(Integer value) {
+                        if (value == 0) {
+                            return Text.literal("Off");
+                        }
+                        return Text.literal(value + "s");
+                    }
+                })
+                .setTooltip(
+                        Text.literal("Auto-eating gets canceled when you "),
+                        Text.literal("take damage,"),
+                        Text.literal("scroll away from food,"),
+                        Text.literal("or attack an entity.")
+
+                )
+                .setSaveConsumer(new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer value) {
+                        cancelCooldownSeconds = Math.max(0, value);
+                    }
+                })
                 .build());
 
         // Create a temporary list for blacklist entries.

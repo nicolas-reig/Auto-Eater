@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.world.GameMode;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
@@ -31,7 +32,8 @@ public class AutoEaterClient implements ClientModInitializer {
         activeState = state;
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player == null || client.world == null) return;
+            if (client.player == null || client.world == null || client.interactionManager == null) return;
+            if (client.interactionManager.getCurrentGameMode() != GameMode.SURVIVAL) return;
             state.clientTicks++;
             initializePlayerState(client, state);
 

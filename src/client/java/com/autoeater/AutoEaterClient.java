@@ -1,9 +1,11 @@
 package com.autoeater;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
@@ -17,14 +19,27 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import org.lwjgl.glfw.GLFW;
+
 import java.lang.reflect.Method;
 
 public class AutoEaterClient implements ClientModInitializer {
+    private static final KeyMapping TOGGLE_KEY = new KeyMapping(
+            "Toggle Auto Eat",
+            GLFW.GLFW_KEY_COMMA,
+            KeyMapping.Category.MISC
+    );
     private static TickState activeState;
 
     @Override
     public void onInitializeClient() {
         AutoEaterConfig.loadConfig();
+        KeyMappingHelper.registerKeyMapping(TOGGLE_KEY);
+
+        String legacyToggleKeyName = AutoEaterConfig.takeLegacyToggleKeyName();
+        if (legacyToggleKeyName != null) {
+            setToggleKey(legacyToggleKeyName);
+        }
 
         TickState state = new TickState();
         state.threshold = AutoEaterConfig.threshold;
@@ -97,7 +112,6 @@ public class AutoEaterClient implements ClientModInitializer {
         long clientTicks;
         float lastCombinedHealth;
         boolean startedUsingItem;
-        boolean toggleKeyPressed;
     }
 
     public static void cancelEating() {
@@ -121,14 +135,30 @@ public class AutoEaterClient implements ClientModInitializer {
     }
 
     private static void processToggleKey(Minecraft client, TickState state) {
-        if (!state.toggleKeyPressed && isToggleKeyPressed(client)) {
-            state.toggleKeyPressed = true;
+        while (TOGGLE_KEY.consumeClick()) {
             AutoEaterConfig.killSwitch = !AutoEaterConfig.killSwitch;
+            AutoEaterConfig.saveConfig();
             String message = AutoEaterConfig.killSwitch ? "Auto eating Disabled" : "Auto eating Enabled";
             ChatFormatting color = AutoEaterConfig.killSwitch ? ChatFormatting.RED : ChatFormatting.GREEN;
             client.player.sendOverlayMessage(Component.literal(message).withStyle(color));
-        } else if (!isToggleKeyPressed(client)) {
-            state.toggleKeyPressed = false;
+        }
+    }
+
+    public static String getToggleKeyName() {
+        return TOGGLE_KEY.saveString();
+    }
+
+    public static Component getToggleKeyDisplayName() {
+        return TOGGLE_KEY.getTranslatedKeyMessage();
+    }
+
+    public static void setToggleKey(String keyName) {
+        TOGGLE_KEY.setKey(InputConstants.getKey(keyName));
+        KeyMapping.resetMapping();
+
+        Minecraft client = Minecraft.getInstance();
+        if (client != null && client.options != null) {
+            client.options.save();
         }
     }
 
@@ -360,9 +390,5 @@ public class AutoEaterClient implements ClientModInitializer {
 
     private static boolean hasFoodComponent(ItemStack stack) {
         return stack.has(DataComponents.FOOD);
-    }
-
-    private static boolean isToggleKeyPressed(Minecraft client) {
-        return InputConstants.isKeyDown(client.getWindow(), AutoEaterConfig.toggleKeyCode);
     }
 }

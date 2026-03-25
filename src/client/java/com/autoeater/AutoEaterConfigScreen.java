@@ -21,7 +21,7 @@ public final class AutoEaterConfigScreen extends Screen {
     private boolean killSwitchValue = AutoEaterConfig.killSwitch;
     private int thresholdValue = AutoEaterConfig.threshold;
     private int cancelCooldownValue = AutoEaterConfig.cancelCooldownSeconds;
-    private int toggleKeyCodeValue = AutoEaterConfig.toggleKeyCode;
+    private String toggleKeyNameValue = AutoEaterClient.getToggleKeyName();
     private boolean listeningForToggleKey;
     private final List<String> blacklistValues = new ArrayList<>(AutoEaterConfig.blacklist);
 
@@ -90,19 +90,19 @@ public final class AutoEaterConfigScreen extends Screen {
         }).bounds(fieldX, rowY, fieldWidth, controlHeight).build()), rowY);
 
         rowY += rowHeight;
+        addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Toggle Key"), font)), rowY + 5);
+        toggleKeyButton = addScrollableWidget(addRenderableWidget(Button.builder(toggleKeyLabel(), button -> {
+            listeningForToggleKey = !listeningForToggleKey;
+            button.setMessage(toggleKeyLabel());
+        }).bounds(fieldX, rowY, fieldWidth, controlHeight).build()), rowY);
+
+        rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Hunger Threshold"), font)), rowY + 5);
         thresholdSlider = addScrollableWidget(addRenderableWidget(new ThresholdSlider(fieldX, rowY, fieldWidth, controlHeight)), rowY);
 
         rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Cancel Cooldown"), font)), rowY + 5);
         cancelCooldownSlider = addScrollableWidget(addRenderableWidget(new CooldownSlider(fieldX, rowY, fieldWidth, controlHeight)), rowY);
-
-        rowY += rowHeight;
-        addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Toggle Key"), font)), rowY + 5);
-        toggleKeyButton = addScrollableWidget(addRenderableWidget(Button.builder(toggleKeyLabel(), button -> {
-            listeningForToggleKey = !listeningForToggleKey;
-            button.setMessage(toggleKeyLabel());
-        }).bounds(fieldX, rowY, fieldWidth, controlHeight).build()), rowY);
 
         rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Blacklist"), font)), rowY + 5);
@@ -127,8 +127,8 @@ public final class AutoEaterConfigScreen extends Screen {
 
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> {
             saveAndClose();
-        }).bounds(centerX - 155, buttonsY, 150, controlHeight).build());
-        addRenderableWidget(Button.builder(Component.literal("Cancel"), button -> onClose()).bounds(centerX + 5, buttonsY, 150, controlHeight).build());
+        }).bounds(centerX + 5, buttonsY, 150, controlHeight).build());
+        addRenderableWidget(Button.builder(Component.literal("Cancel"), button -> onClose()).bounds(centerX - 155, buttonsY, 150, controlHeight).build());
 
         setInitialFocus(blacklistInput);
     }
@@ -147,7 +147,7 @@ public final class AutoEaterConfigScreen extends Screen {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 listeningForToggleKey = false;
             } else {
-                toggleKeyCodeValue = keyCode;
+                toggleKeyNameValue = InputConstants.getKey(event).getName();
                 listeningForToggleKey = false;
             }
             toggleKeyButton.setMessage(toggleKeyLabel());
@@ -200,7 +200,7 @@ public final class AutoEaterConfigScreen extends Screen {
 
     private Component toggleKeyLabel() {
         if (listeningForToggleKey) {
-            Component keyName = InputConstants.getKey(new KeyEvent(toggleKeyCodeValue, 0, 0))
+            Component keyName = InputConstants.getKey(toggleKeyNameValue)
                     .getDisplayName()
                     .copy()
                     .withStyle(ChatFormatting.YELLOW, ChatFormatting.UNDERLINE);
@@ -209,16 +209,16 @@ public final class AutoEaterConfigScreen extends Screen {
                     .append(keyName)
                     .append(Component.literal(" <").withStyle(ChatFormatting.YELLOW));
         }
-        return InputConstants.getKey(new KeyEvent(toggleKeyCodeValue, 0, 0)).getDisplayName();
+        return InputConstants.getKey(toggleKeyNameValue).getDisplayName();
     }
 
     private void saveAndClose() {
         AutoEaterConfig.killSwitch = killSwitchValue;
         AutoEaterConfig.threshold = thresholdValue;
         AutoEaterConfig.cancelCooldownSeconds = cancelCooldownValue;
-        AutoEaterConfig.toggleKeyCode = toggleKeyCodeValue;
         AutoEaterConfig.blacklist = new ArrayList<>(blacklistValues);
         AutoEaterConfig.saveConfig();
+        AutoEaterClient.setToggleKey(toggleKeyNameValue);
         onClose();
     }
 

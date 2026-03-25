@@ -5,7 +5,7 @@ This is a simple client mod to stop worrying about eating all the time, selectin
 # Features
 - Killswitch with hotkey:   
 
-	Lets you turn Auto Eater on or off instantly without opening the config screen. Useful when you want full manual control for combat, building, or other precise actions.    
+	Lets you turn Auto Eater on or off instantly by pressing `,` without opening the config screen. Useful when you want full manual control for combat, building, or other precise actions.    
 	   
 - Customizable Food Blacklist:    
 

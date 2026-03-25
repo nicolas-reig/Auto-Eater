@@ -21,12 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class AutoEaterConfig {
-    public static final int DEFAULT_TOGGLE_KEY_CODE = GLFW.GLFW_KEY_COMMA;
-
     public static boolean killSwitch = false;
     public static int threshold = 0;
     public static int cancelCooldownSeconds = 7;
-    public static int toggleKeyCode = DEFAULT_TOGGLE_KEY_CODE;
 
     public static final List<String> DEFAULT_BLACKLIST = List.of(
             "rotten_flesh",
@@ -42,6 +39,7 @@ public final class AutoEaterConfig {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("auto_eater.json");
+    private static String legacyToggleKeyName;
 
     private AutoEaterConfig() {
     }
@@ -71,7 +69,10 @@ public final class AutoEaterConfig {
             String json = Files.readString(CONFIG_PATH);
             Data configData = GSON.fromJson(json, Data.class);
             if (configData != null) {
-                apply(configData);
+                boolean hasLegacyToggleKey = apply(configData);
+                if (hasLegacyToggleKey) {
+                    saveConfig();
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -91,30 +92,36 @@ public final class AutoEaterConfig {
         data.killSwitch = killSwitch;
         data.threshold = threshold;
         data.cancelCooldownSeconds = cancelCooldownSeconds;
-        data.toggleKeyCode = toggleKeyCode;
         data.blacklist = new ArrayList<>(blacklist);
         return data;
     }
 
-    private static void apply(Data data) {
+    private static boolean apply(Data data) {
         killSwitch = data.killSwitch;
         threshold = data.threshold;
         cancelCooldownSeconds = Math.max(0, data.cancelCooldownSeconds);
-        toggleKeyCode = getConfiguredToggleKeyCode(data);
         blacklist = data.blacklist != null ? validateBlacklist(data.blacklist) : new ArrayList<>(DEFAULT_BLACKLIST);
+        legacyToggleKeyName = getLegacyToggleKeyName(data);
+        return legacyToggleKeyName != null;
     }
 
     public static Component getToggleKeyDisplayName() {
-        return InputConstants.getKey(new KeyEvent(toggleKeyCode, 0, 0)).getDisplayName();
+        return AutoEaterClient.getToggleKeyDisplayName();
     }
 
-    private static int getConfiguredToggleKeyCode(Data data) {
+    public static String takeLegacyToggleKeyName() {
+        String value = legacyToggleKeyName;
+        legacyToggleKeyName = null;
+        return value;
+    }
+
+    private static String getLegacyToggleKeyName(Data data) {
         if (data.toggleKeyCode != null && data.toggleKeyCode >= 0) {
-            return data.toggleKeyCode;
+            return InputConstants.getKey(new KeyEvent(data.toggleKeyCode, 0, 0)).getName();
         }
 
         if (data.toggleKey != null && !data.toggleKey.isEmpty()) {
-            return switch (data.toggleKey.charAt(0)) {
+            int keyCode = switch (data.toggleKey.charAt(0)) {
                 case ',' -> GLFW.GLFW_KEY_COMMA;
                 case '.' -> GLFW.GLFW_KEY_PERIOD;
                 case '/' -> GLFW.GLFW_KEY_SLASH;
@@ -128,9 +135,10 @@ public final class AutoEaterConfig {
                 case '=' -> GLFW.GLFW_KEY_EQUAL;
                 default -> legacyAlphaNumericKeyCode(data.toggleKey.charAt(0));
             };
+            return InputConstants.getKey(new KeyEvent(keyCode, 0, 0)).getName();
         }
 
-        return DEFAULT_TOGGLE_KEY_CODE;
+        return null;
     }
 
     private static int legacyAlphaNumericKeyCode(char key) {
@@ -140,7 +148,7 @@ public final class AutoEaterConfig {
         if (Character.isDigit(key)) {
             return GLFW.GLFW_KEY_0 + (key - '0');
         }
-        return DEFAULT_TOGGLE_KEY_CODE;
+        return GLFW.GLFW_KEY_COMMA;
     }
 
     private static List<String> validateBlacklist(List<String> values) {

@@ -25,7 +25,10 @@ This is a simple client mod to stop worrying about eating all the time, selectin
 
 
 
+# Minecraft 26.1
+This branch now targets Minecraft 26.1 on Fabric with Java 25.
+
 # Config
-Configurations are available through the mod menu.
+Configuration is available through Mod Menu and stored in `config/auto_eater.json`.
 
 [Download](https://modrinth.com/mod/auto-eater/versions)

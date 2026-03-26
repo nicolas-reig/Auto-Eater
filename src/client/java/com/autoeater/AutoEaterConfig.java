@@ -21,8 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class AutoEaterConfig {
+    public static final int DEFAULT_THRESHOLD = 20;
+
     public static boolean killSwitch = false;
-    public static int threshold = 0;
+    public static int threshold = DEFAULT_THRESHOLD;
     public static int cancelCooldownSeconds = 7;
 
     public static final List<String> DEFAULT_BLACKLIST = List.of(
@@ -213,7 +215,7 @@ public final class AutoEaterConfig {
 
     private static class Data {
         boolean killSwitch;
-        int threshold;
+        int threshold = DEFAULT_THRESHOLD;
         int cancelCooldownSeconds;
         Integer toggleKeyCode;
         String toggleKey;

@@ -6,6 +6,7 @@ import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
@@ -88,6 +89,7 @@ public final class AutoEaterConfigScreen extends Screen {
             killSwitchValue = !killSwitchValue;
             button.setMessage(toggleLabel());
         }).bounds(fieldX, rowY, fieldWidth, controlHeight).build()), rowY);
+        killSwitchButton.setTooltip(Tooltip.create(Component.literal("Turns auto eating off completely.")));
 
         rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Toggle Key"), font)), rowY + 5);
@@ -99,16 +101,19 @@ public final class AutoEaterConfigScreen extends Screen {
         rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Hunger Threshold"), font)), rowY + 5);
         thresholdSlider = addScrollableWidget(addRenderableWidget(new ThresholdSlider(fieldX, rowY, fieldWidth, controlHeight)), rowY);
+        thresholdSlider.setTooltip(Tooltip.create(Component.literal("Auto modes use the lowest or highest food value in your hotbar.")));
 
         rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Cancel Cooldown"), font)), rowY + 5);
         cancelCooldownSlider = addScrollableWidget(addRenderableWidget(new CooldownSlider(fieldX, rowY, fieldWidth, controlHeight)), rowY);
+        cancelCooldownSlider.setTooltip(Tooltip.create(Component.literal("Wait time before auto eating can start again after canceling.")));
 
         rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Blacklist"), font)), rowY + 5);
         blacklistInput = addScrollableWidget(addRenderableWidget(new EditBox(font, fieldX, rowY, fieldWidth - addButtonWidth - 5, controlHeight, Component.literal("minecraft:item"))), rowY);
         blacklistInput.setMaxLength(128);
         blacklistInput.setHint(Component.literal("minecraft:item"));
+        blacklistInput.setTooltip(Tooltip.create(Component.literal("Enter an item id, like bread or minecraft:bread. mod:item also works for modded items.")));
         addBlacklistButton = addScrollableWidget(addRenderableWidget(Button.builder(Component.literal("Add"), button -> addBlacklistEntry())
                 .bounds(fieldX + fieldWidth - addButtonWidth, rowY, addButtonWidth, controlHeight)
                 .build()), rowY);
@@ -122,6 +127,7 @@ public final class AutoEaterConfigScreen extends Screen {
         resetBlacklistButton = addScrollableWidget(addRenderableWidget(Button.builder(Component.literal("Defaults"), button -> resetBlacklistToDefaults())
                 .bounds(fieldX + ((fieldWidth - 5) / 2) + 5, rowY, (fieldWidth - 5) / 2, controlHeight)
                 .build()), rowY);
+        resetBlacklistButton.setTooltip(Tooltip.create(Component.literal("Restores the built-in blacklist.")));
         refreshBlacklistEntries();
         removeBlacklistButton.active = false;
 
@@ -267,7 +273,6 @@ public final class AutoEaterConfigScreen extends Screen {
             Button entryButton = addRenderableWidget(Button.builder(blacklistLabel(index), button -> selectBlacklistEntry(index))
                     .bounds(layoutFieldX, rowY, layoutFieldWidth, layoutControlHeight)
                     .build());
-            entryButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(blacklistValues.get(index))));
             addScrollableWidget(entryButton, rowY);
             blacklistEntryButtons.add(entryButton);
             rowY += layoutControlHeight + 2;

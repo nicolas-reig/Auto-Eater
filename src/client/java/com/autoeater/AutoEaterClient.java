@@ -25,7 +25,7 @@ import java.lang.reflect.Method;
 
 public class AutoEaterClient implements ClientModInitializer {
     private static final KeyMapping TOGGLE_KEY = new KeyMapping(
-            "Toggle Auto Eat",
+            "key.auto-eater.toggle",
             GLFW.GLFW_KEY_COMMA,
             KeyMapping.Category.MISC
     );

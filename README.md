@@ -23,7 +23,7 @@ This is a simple client mod to stop worrying about eating all the time, selectin
 
 	Auto-eating can be canceled by scrolling away or by pressing left click, and the mod then stays inactive for a configurable amount of time. Getting hit also cancels the mod for safety.      
 
-
+#### Want to see a feature implemented? Please make a [feaure request](https://github.com/nicolas-reig/Auto-Eject/issues/new?labels=feature%20request).
 
 # Minecraft 26.1
 This branch now targets Minecraft 26.1 on Fabric with Java 25.

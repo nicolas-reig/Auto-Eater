@@ -57,6 +57,14 @@ public class AutoEaterClient implements ClientModInitializer {
             initializePlayerState(client, state);
             processToggleKey(client, state);
 
+            if (AutoEaterConfig.killSwitch) {
+                if (state.eating) {
+                    stopEating(client, state);
+                }
+                updatePlayerState(client, state);
+                return;
+            }
+
             if (cancelForDamage(client, state)
                     || cancelForScrollAway(client, state)
                     || cancelForManualAttack(client, state)
@@ -79,7 +87,6 @@ public class AutoEaterClient implements ClientModInitializer {
             }
 
             if (isCancelActive(state)
-                    || AutoEaterConfig.killSwitch
                     || client.options.keyUse.isDown()
                     || client.options.keyAttack.isDown()
                     || isLookingAtUsableBlock(client)
@@ -125,7 +132,9 @@ public class AutoEaterClient implements ClientModInitializer {
 
         Minecraft client = Minecraft.getInstance();
         if (client != null) {
-            stopEating(client, state);
+            if (state.eating) {
+                stopEating(client, state);
+            }
         }
     }
 
@@ -182,7 +191,12 @@ public class AutoEaterClient implements ClientModInitializer {
         client.options.keyUse.setDown(true);
 
         if (client.player.isUsingItem()) {
-            state.startedUsingItem = true;
+            if (client.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
+                state.startedUsingItem = true;
+                return;
+            }
+
+            stopEating(client, state);
         } else if (state.startedUsingItem || heldStack.getCount() < state.initialFoodCount) {
             stopEating(client, state);
         }
@@ -369,7 +383,7 @@ public class AutoEaterClient implements ClientModInitializer {
     }
 
     private static void stopEating(Minecraft client, TickState state) {
-        client.options.keyUse.setDown(false);
+        forceReleaseUseAction(client);
 
         if (client.player != null
                 && state.switchedSlotForEating
@@ -382,6 +396,35 @@ public class AutoEaterClient implements ClientModInitializer {
         state.foodSlot = 0;
         state.initialFoodCount = 0;
         state.startedUsingItem = false;
+    }
+
+    private static void forceReleaseUseAction(Minecraft client) {
+        client.options.keyUse.setDown(false);
+
+        if (client.player == null) {
+            return;
+        }
+
+        if (client.player.isUsingItem()) {
+            client.player.stopUsingItem();
+        }
+
+        if (client.gameMode == null) {
+            return;
+        }
+
+        try {
+            Method stopUsingItem = client.gameMode.getClass().getMethod("stopUsingItem", Player.class);
+            stopUsingItem.invoke(client.gameMode, client.player);
+            return;
+        } catch (ReflectiveOperationException ignored) {
+        }
+
+        try {
+            Method releaseUsingItem = client.gameMode.getClass().getMethod("releaseUsingItem", Player.class);
+            releaseUsingItem.invoke(client.gameMode, client.player);
+        } catch (ReflectiveOperationException ignored) {
+        }
     }
 
     private static boolean isCancelActive(TickState state) {

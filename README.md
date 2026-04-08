@@ -32,3 +32,8 @@ This branch now targets Minecraft 26.1.1 on Fabric with Java 25.
 Configuration is available through Mod Menu and stored in `config/auto_eater.json`.
 
 [Download](https://modrinth.com/mod/auto-eater/versions)
+
+<h1><span style="color:#d73a49;">Server Warning</span></h1>
+<b>Some servers use plugins that turn your inventory into a UI (for example shops, menus, or other item-based interfaces).  
+In those cases, Auto-Eater can mistakenly try to eat UI items or interfere with menu interactions.  
+On large servers that use that tipe of interfaces (e.g. Hypixel), it is recommended to turn Auto-Eaeter off while using those plugin/UIs.</b>

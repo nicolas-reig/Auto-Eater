@@ -25,16 +25,27 @@ public final class AutoEaterConfig {
 
     public static boolean killSwitch = false;
     public static int threshold = DEFAULT_THRESHOLD;
+    public static boolean inventoryScanEnabled = true;
     public static int cancelCooldownSeconds = 7;
 
     public static final List<String> DEFAULT_BLACKLIST = List.of(
             "rotten_flesh",
             "golden_apple",
             "enchanted_golden_apple",
+            "beef",
+            "porkchop",
+            "chicken",
+            "mutton",
+            "rabbit",
+            "cod",
+            "salmon",
+            "tropical_fish",
+            "potato",
             "pufferfish",
             "suspicious_stew",
             "chorus_fruit",
-            "poisonous_potato"
+            "poisonous_potato",
+            "spider_eye"
     );
 
     public static List<String> blacklist = new ArrayList<>(DEFAULT_BLACKLIST);
@@ -93,6 +104,7 @@ public final class AutoEaterConfig {
         Data data = new Data();
         data.killSwitch = killSwitch;
         data.threshold = threshold;
+        data.inventoryScanEnabled = inventoryScanEnabled;
         data.cancelCooldownSeconds = cancelCooldownSeconds;
         data.blacklist = new ArrayList<>(blacklist);
         return data;
@@ -101,6 +113,7 @@ public final class AutoEaterConfig {
     private static boolean apply(Data data) {
         killSwitch = data.killSwitch;
         threshold = data.threshold;
+        inventoryScanEnabled = data.inventoryScanEnabled;
         cancelCooldownSeconds = Math.max(0, data.cancelCooldownSeconds);
         blacklist = data.blacklist != null ? validateBlacklist(data.blacklist) : new ArrayList<>(DEFAULT_BLACKLIST);
         legacyToggleKeyName = getLegacyToggleKeyName(data);
@@ -216,6 +229,7 @@ public final class AutoEaterConfig {
     private static class Data {
         boolean killSwitch;
         int threshold = DEFAULT_THRESHOLD;
+        boolean inventoryScanEnabled = true;
         int cancelCooldownSeconds;
         Integer toggleKeyCode;
         String toggleKey;

@@ -21,12 +21,14 @@ public final class AutoEaterConfigScreen extends Screen {
     private final Screen parent;
     private boolean killSwitchValue = AutoEaterConfig.killSwitch;
     private int thresholdValue = AutoEaterConfig.threshold;
+    private boolean inventoryScanValue = AutoEaterConfig.inventoryScanEnabled;
     private int cancelCooldownValue = AutoEaterConfig.cancelCooldownSeconds;
     private String toggleKeyNameValue = AutoEaterClient.getToggleKeyName();
     private boolean listeningForToggleKey;
     private final List<String> blacklistValues = new ArrayList<>(AutoEaterConfig.blacklist);
 
     private Button killSwitchButton;
+    private Button inventoryScanButton;
     private Button toggleKeyButton;
     private Button addBlacklistButton;
     private Button removeBlacklistButton;
@@ -99,9 +101,17 @@ public final class AutoEaterConfigScreen extends Screen {
         }).bounds(fieldX, rowY, fieldWidth, controlHeight).build()), rowY);
 
         rowY += rowHeight;
+        addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Include Inventory"), font)), rowY + 5);
+        inventoryScanButton = addScrollableWidget(addRenderableWidget(Button.builder(inventoryScanLabel(), button -> {
+            inventoryScanValue = !inventoryScanValue;
+            button.setMessage(inventoryScanLabel());
+        }).bounds(fieldX, rowY, fieldWidth, controlHeight).build()), rowY);
+        inventoryScanButton.setTooltip(Tooltip.create(Component.literal("When the hotbar has no food, auto-eater pulls food from your inventory.")));
+
+        rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Hunger Threshold"), font)), rowY + 5);
         thresholdSlider = addScrollableWidget(addRenderableWidget(new ThresholdSlider(fieldX, rowY, fieldWidth, controlHeight)), rowY);
-        thresholdSlider.setTooltip(Tooltip.create(Component.literal("Auto modes use the lowest or highest food value in your hotbar.")));
+        thresholdSlider.setTooltip(Tooltip.create(Component.literal("Auto modes use the lowest or highest food value in your hotbar, or inventory.")));
 
         rowY += rowHeight;
         addScrollableWidget(addRenderableOnly(new StringWidget(left, rowY + 5, leftWidth, controlHeight, Component.literal("Cancel Cooldown"), font)), rowY + 5);
@@ -203,6 +213,10 @@ public final class AutoEaterConfigScreen extends Screen {
                 : Component.literal(cancelCooldownValue + "s");
     }
 
+    private Component inventoryScanLabel() {
+        return Component.literal(inventoryScanValue ? "On" : "Off");
+    }
+
     private Component toggleKeyLabel() {
         if (listeningForToggleKey) {
             Component keyName = InputConstants.getKey(toggleKeyNameValue)
@@ -220,6 +234,7 @@ public final class AutoEaterConfigScreen extends Screen {
     private void saveAndClose() {
         AutoEaterConfig.killSwitch = killSwitchValue;
         AutoEaterConfig.threshold = thresholdValue;
+        AutoEaterConfig.inventoryScanEnabled = inventoryScanValue;
         AutoEaterConfig.cancelCooldownSeconds = cancelCooldownValue;
         AutoEaterConfig.blacklist = new ArrayList<>(blacklistValues);
         AutoEaterConfig.saveConfig();

@@ -11,7 +11,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -24,6 +28,9 @@ import org.lwjgl.glfw.GLFW;
 import java.lang.reflect.Method;
 
 public class AutoEaterClient implements ClientModInitializer {
+    private static final int HOTBAR_SIZE = Inventory.SELECTION_SIZE;
+    private static final int INVENTORY_SIZE = Inventory.INVENTORY_SIZE;
+    private static final int INVENTORY_FALLBACK_HOTBAR_SLOT = HOTBAR_SIZE - 1;
     private static final KeyMapping TOGGLE_KEY = new KeyMapping(
             "key.auto-eater.toggle",
             GLFW.GLFW_KEY_COMMA,
@@ -119,6 +126,8 @@ public class AutoEaterClient implements ClientModInitializer {
         long clientTicks;
         float lastCombinedHealth;
         boolean startedUsingItem;
+        boolean swappedInventorySlotForEating;
+        int swappedInventorySourceSlot = -1;
     }
 
     public static void cancelEating() {
@@ -267,7 +276,7 @@ public class AutoEaterClient implements ClientModInitializer {
         switch (AutoEaterConfig.threshold) {
             case 0 -> {
                 int minNutrition = 20;
-                for (int slot = 0; slot < 9; slot++) {
+                for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
                     ItemStack stack = client.player.getInventory().getItem(slot);
                     if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
                         int nutrition = stack.get(DataComponents.FOOD).nutrition();
@@ -276,11 +285,24 @@ public class AutoEaterClient implements ClientModInitializer {
                         }
                     }
                 }
+
+                if (minNutrition == 20 && AutoEaterConfig.inventoryScanEnabled) {
+                    for (int slot = HOTBAR_SIZE; slot < INVENTORY_SIZE; slot++) {
+                        ItemStack stack = client.player.getInventory().getItem(slot);
+                        if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
+                            int nutrition = stack.get(DataComponents.FOOD).nutrition();
+                            if (nutrition < minNutrition) {
+                                minNutrition = nutrition;
+                            }
+                        }
+                    }
+                }
+
                 state.threshold = minNutrition != 20 ? minNutrition : AutoEaterConfig.threshold;
             }
             case 20 -> {
                 int maxNutrition = 0;
-                for (int slot = 0; slot < 9; slot++) {
+                for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
                     ItemStack stack = client.player.getInventory().getItem(slot);
                     if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
                         int nutrition = stack.get(DataComponents.FOOD).nutrition();
@@ -289,6 +311,19 @@ public class AutoEaterClient implements ClientModInitializer {
                         }
                     }
                 }
+
+                if (maxNutrition == 0 && AutoEaterConfig.inventoryScanEnabled) {
+                    for (int slot = HOTBAR_SIZE; slot < INVENTORY_SIZE; slot++) {
+                        ItemStack stack = client.player.getInventory().getItem(slot);
+                        if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
+                            int nutrition = stack.get(DataComponents.FOOD).nutrition();
+                            if (nutrition > maxNutrition) {
+                                maxNutrition = nutrition;
+                            }
+                        }
+                    }
+                }
+
                 state.threshold = maxNutrition != 0 ? maxNutrition : AutoEaterConfig.threshold;
             }
             default -> state.threshold = AutoEaterConfig.threshold;
@@ -361,25 +396,115 @@ public class AutoEaterClient implements ClientModInitializer {
     }
 
     private static void tryAutoEat(Minecraft client, TickState state) {
-        for (int slot = 0; slot < 9; slot++) {
-            ItemStack stack = client.player.getInventory().getItem(slot);
-            if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
-                int nutrition = stack.get(DataComponents.FOOD).nutrition();
-                if ((AutoEaterConfig.threshold == 0 || AutoEaterConfig.threshold == 20) && nutrition != state.threshold) {
-                    continue;
-                }
+        int hotbarFoodSlot = findFoodSlot(client, state, 0, HOTBAR_SIZE);
+        if (hotbarFoodSlot >= 0) {
+            ItemStack hotbarStack = client.player.getInventory().getItem(hotbarFoodSlot);
+            startEating(client, state, hotbarFoodSlot, hotbarStack, false, -1);
+            return;
+        }
 
-                state.previousSlot = client.player.getInventory().getSelectedSlot();
-                state.foodSlot = slot;
-                state.initialFoodCount = stack.getCount();
-                state.switchedSlotForEating = state.previousSlot != slot;
-                state.startedUsingItem = false;
-                client.player.getInventory().setSelectedSlot(slot);
-                state.eating = true;
-                client.options.keyUse.setDown(true);
-                break;
+        if (!AutoEaterConfig.inventoryScanEnabled) {
+            return;
+        }
+
+        int inventoryFoodSlot = findFoodSlot(client, state, HOTBAR_SIZE, INVENTORY_SIZE);
+        if (inventoryFoodSlot < 0 || client.gameMode == null) {
+            return;
+        }
+
+        if (!swapInventorySlotIntoHotbar(client, inventoryFoodSlot, INVENTORY_FALLBACK_HOTBAR_SLOT)) {
+            return;
+        }
+
+        ItemStack swappedStack = client.player.getInventory().getItem(INVENTORY_FALLBACK_HOTBAR_SLOT);
+        if (!isFoodCandidate(swappedStack, state)) {
+            return;
+        }
+
+        startEating(client, state, INVENTORY_FALLBACK_HOTBAR_SLOT, swappedStack, true, inventoryFoodSlot);
+    }
+
+    private static int findFoodSlot(Minecraft client, TickState state, int startSlot, int endSlotExclusive) {
+        for (int slot = startSlot; slot < endSlotExclusive; slot++) {
+            ItemStack stack = client.player.getInventory().getItem(slot);
+            if (isFoodCandidate(stack, state)) {
+                return slot;
             }
         }
+        return -1;
+    }
+
+    private static boolean isFoodCandidate(ItemStack stack, TickState state) {
+        if (!hasFoodComponent(stack) || AutoEaterConfig.isBlacklisted(stack)) {
+            return false;
+        }
+
+        if (AutoEaterConfig.threshold == 0 || AutoEaterConfig.threshold == 20) {
+            return stack.get(DataComponents.FOOD).nutrition() == state.threshold;
+        }
+
+        return true;
+    }
+
+    private static void startEating(
+            Minecraft client,
+            TickState state,
+            int foodSlot,
+            ItemStack foodStack,
+            boolean swappedInventorySlotForEating,
+            int swappedInventorySourceSlot
+    ) {
+        state.previousSlot = client.player.getInventory().getSelectedSlot();
+        state.foodSlot = foodSlot;
+        state.initialFoodCount = foodStack.getCount();
+        state.switchedSlotForEating = state.previousSlot != foodSlot;
+        state.startedUsingItem = false;
+        state.swappedInventorySlotForEating = swappedInventorySlotForEating;
+        state.swappedInventorySourceSlot = swappedInventorySourceSlot;
+        client.player.getInventory().setSelectedSlot(foodSlot);
+        state.eating = true;
+        client.options.keyUse.setDown(true);
+    }
+
+    private static boolean swapInventorySlotIntoHotbar(Minecraft client, int inventorySlot, int hotbarSlot) {
+        if (client.player == null || client.gameMode == null) {
+            return false;
+        }
+
+        AbstractContainerMenu menu = client.player.containerMenu;
+        int menuSlotIndex = getMenuSlotIndex(menu, inventorySlot);
+        if (menuSlotIndex < 0) {
+            return false;
+        }
+
+        client.gameMode.handleContainerInput(
+                menu.containerId,
+                menuSlotIndex,
+                hotbarSlot,
+                ContainerInput.SWAP,
+                client.player
+        );
+        return true;
+    }
+
+    private static int getMenuSlotIndex(AbstractContainerMenu menu, int inventorySlot) {
+        for (int slotIndex = 0; slotIndex < menu.slots.size(); slotIndex++) {
+            Slot slot = menu.slots.get(slotIndex);
+            if (slot.container instanceof Inventory && slot.getContainerSlot() == inventorySlot) {
+                return slotIndex;
+            }
+        }
+        return -1;
+    }
+
+    private static void restoreInventoryFallbackSwap(Minecraft client, TickState state) {
+        if (!state.swappedInventorySlotForEating
+                || state.swappedInventorySourceSlot < HOTBAR_SIZE
+                || state.swappedInventorySourceSlot >= INVENTORY_SIZE) {
+            return;
+        }
+
+        swapInventorySlotIntoHotbar(client, state.swappedInventorySourceSlot, INVENTORY_FALLBACK_HOTBAR_SLOT);
     }
 
     private static void stopEating(Minecraft client, TickState state) {
@@ -391,11 +516,15 @@ public class AutoEaterClient implements ClientModInitializer {
             client.player.getInventory().setSelectedSlot(state.previousSlot);
         }
 
+        restoreInventoryFallbackSwap(client, state);
+
         state.eating = false;
         state.switchedSlotForEating = false;
         state.foodSlot = 0;
         state.initialFoodCount = 0;
         state.startedUsingItem = false;
+        state.swappedInventorySlotForEating = false;
+        state.swappedInventorySourceSlot = -1;
     }
 
     private static void forceReleaseUseAction(Minecraft client) {

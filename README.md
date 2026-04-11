@@ -25,9 +25,6 @@ This is a simple client mod to stop worrying about eating all the time, selectin
 
 #### Want to see a feature implemented? Please make a [feaure request](https://github.com/nicolas-reig/Auto-Eject/issues/new?labels=feature%20request).
 
-# Minecraft 26.1.1
-This branch now targets Minecraft 26.1.1 on Fabric with Java 25.
-
 # Config
 Configuration is available through Mod Menu and stored in `config/auto_eater.json`.
 

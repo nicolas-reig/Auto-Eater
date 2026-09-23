@@ -79,7 +79,7 @@ public class AutoEaterClient implements ClientModInitializer {
                 return;
             }
 
-            if (client.screen != null) {
+            if (client.gui.screen() != null) {
                 if (state.eating) {
                     stopEating(client, state);
                 }

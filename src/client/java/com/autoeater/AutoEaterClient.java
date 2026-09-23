@@ -23,7 +23,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import org.lwjgl.glfw.GLFW;
 
 import java.lang.reflect.Method;
 
@@ -33,7 +32,7 @@ public class AutoEaterClient implements ClientModInitializer {
     private static final int INVENTORY_FALLBACK_HOTBAR_SLOT = HOTBAR_SIZE - 1;
     private static final KeyMapping TOGGLE_KEY = new KeyMapping(
             "key.auto-eater.toggle",
-            GLFW.GLFW_KEY_COMMA,
+            InputConstants.KEY_COMMA,
             KeyMapping.Category.MISC
     );
     private static TickState activeState;

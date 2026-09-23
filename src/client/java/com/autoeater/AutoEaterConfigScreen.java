@@ -10,7 +10,6 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -159,7 +158,7 @@ public final class AutoEaterConfigScreen extends Screen {
     public boolean keyPressed(KeyEvent event) {
         if (listeningForToggleKey) {
             int keyCode = event.key();
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            if (keyCode == InputConstants.KEY_ESCAPE) {
                 listeningForToggleKey = false;
             } else {
                 toggleKeyNameValue = InputConstants.getKey(event).getName();
@@ -171,7 +170,7 @@ public final class AutoEaterConfigScreen extends Screen {
 
         if (blacklistInput != null
                 && blacklistInput.isFocused()
-                && event.key() == GLFW.GLFW_KEY_ENTER) {
+                && event.key() == InputConstants.KEY_RETURN) {
             addBlacklistEntry();
             return true;
         }

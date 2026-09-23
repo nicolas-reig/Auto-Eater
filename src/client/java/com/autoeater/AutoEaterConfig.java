@@ -12,7 +12,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -137,17 +136,17 @@ public final class AutoEaterConfig {
 
         if (data.toggleKey != null && !data.toggleKey.isEmpty()) {
             int keyCode = switch (data.toggleKey.charAt(0)) {
-                case ',' -> GLFW.GLFW_KEY_COMMA;
-                case '.' -> GLFW.GLFW_KEY_PERIOD;
-                case '/' -> GLFW.GLFW_KEY_SLASH;
-                case ';' -> GLFW.GLFW_KEY_SEMICOLON;
-                case '\'' -> GLFW.GLFW_KEY_APOSTROPHE;
-                case '[' -> GLFW.GLFW_KEY_LEFT_BRACKET;
-                case ']' -> GLFW.GLFW_KEY_RIGHT_BRACKET;
-                case '\\' -> GLFW.GLFW_KEY_BACKSLASH;
-                case '`' -> GLFW.GLFW_KEY_GRAVE_ACCENT;
-                case '-' -> GLFW.GLFW_KEY_MINUS;
-                case '=' -> GLFW.GLFW_KEY_EQUAL;
+                case ',' -> InputConstants.KEY_COMMA;
+                case '.' -> InputConstants.KEY_PERIOD;
+                case '/' -> InputConstants.KEY_SLASH;
+                case ';' -> InputConstants.KEY_SEMICOLON;
+                case '\'' -> InputConstants.KEY_APOSTROPHE;
+                case '[' -> InputConstants.KEY_LBRACKET;
+                case ']' -> InputConstants.KEY_RBRACKET;
+                case '\\' -> InputConstants.KEY_BACKSLASH;
+                case '`' -> InputConstants.KEY_GRAVE;
+                case '-' -> InputConstants.KEY_MINUS;
+                case '=' -> InputConstants.KEY_EQUALS;
                 default -> legacyAlphaNumericKeyCode(data.toggleKey.charAt(0));
             };
             return InputConstants.getKey(new KeyEvent(keyCode, 0, 0)).getName();
@@ -157,13 +156,18 @@ public final class AutoEaterConfig {
     }
 
     private static int legacyAlphaNumericKeyCode(char key) {
-        if (Character.isLetter(key)) {
-            return GLFW.GLFW_KEY_A + (Character.toUpperCase(key) - 'A');
+        char upperKey = Character.toUpperCase(key);
+        if (upperKey >= 'A' && upperKey <= 'Z') {
+            return InputConstants.KEY_A + (upperKey - 'A');
         }
-        if (Character.isDigit(key)) {
-            return GLFW.GLFW_KEY_0 + (key - '0');
+        if (key == '0') {
+            return InputConstants.KEY_0;
         }
-        return GLFW.GLFW_KEY_COMMA;
+        if (key >= '1' && key <= '9') {
+            // Keyboard scan codes place 0 after 9, rather than before 1.
+            return InputConstants.KEY_1 + (key - '1');
+        }
+        return InputConstants.KEY_COMMA;
     }
 
     private static List<String> validateBlacklist(List<String> values) {

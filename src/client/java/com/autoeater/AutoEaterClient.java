@@ -191,7 +191,7 @@ public class AutoEaterClient implements ClientModInitializer {
         }
 
         ItemStack heldStack = client.player.getMainHandItem();
-        if (heldStack.isEmpty() || !hasFoodComponent(heldStack)) {
+        if (heldStack.isEmpty() || !isConsumableFood(heldStack)) {
             stopEating(client, state);
             return;
         }
@@ -250,8 +250,8 @@ public class AutoEaterClient implements ClientModInitializer {
 
         if (!state.eating
                 && client.options.keyUse.isDown()
-                && !hasFoodComponent(mainHandStack)
-                && !hasFoodComponent(offHandStack)) {
+                && !isConsumableFood(mainHandStack)
+                && !isConsumableFood(offHandStack)) {
             cancelEating();
             updatePlayerState(client, state);
             return true;
@@ -277,7 +277,7 @@ public class AutoEaterClient implements ClientModInitializer {
                 int minNutrition = 20;
                 for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
                     ItemStack stack = client.player.getInventory().getItem(slot);
-                    if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
+                    if (isConsumableFood(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
                         int nutrition = stack.get(DataComponents.FOOD).nutrition();
                         if (nutrition < minNutrition) {
                             minNutrition = nutrition;
@@ -288,7 +288,7 @@ public class AutoEaterClient implements ClientModInitializer {
                 if (minNutrition == 20 && AutoEaterConfig.inventoryScanEnabled) {
                     for (int slot = HOTBAR_SIZE; slot < INVENTORY_SIZE; slot++) {
                         ItemStack stack = client.player.getInventory().getItem(slot);
-                        if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
+                        if (isConsumableFood(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
                             int nutrition = stack.get(DataComponents.FOOD).nutrition();
                             if (nutrition < minNutrition) {
                                 minNutrition = nutrition;
@@ -303,7 +303,7 @@ public class AutoEaterClient implements ClientModInitializer {
                 int maxNutrition = 0;
                 for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
                     ItemStack stack = client.player.getInventory().getItem(slot);
-                    if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
+                    if (isConsumableFood(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
                         int nutrition = stack.get(DataComponents.FOOD).nutrition();
                         if (nutrition > maxNutrition) {
                             maxNutrition = nutrition;
@@ -314,7 +314,7 @@ public class AutoEaterClient implements ClientModInitializer {
                 if (maxNutrition == 0 && AutoEaterConfig.inventoryScanEnabled) {
                     for (int slot = HOTBAR_SIZE; slot < INVENTORY_SIZE; slot++) {
                         ItemStack stack = client.player.getInventory().getItem(slot);
-                        if (hasFoodComponent(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
+                        if (isConsumableFood(stack) && !AutoEaterConfig.isBlacklisted(stack)) {
                             int nutrition = stack.get(DataComponents.FOOD).nutrition();
                             if (nutrition > maxNutrition) {
                                 maxNutrition = nutrition;
@@ -434,7 +434,7 @@ public class AutoEaterClient implements ClientModInitializer {
     }
 
     private static boolean isFoodCandidate(ItemStack stack, TickState state) {
-        if (!hasFoodComponent(stack) || AutoEaterConfig.isBlacklisted(stack)) {
+        if (!isConsumableFood(stack) || AutoEaterConfig.isBlacklisted(stack)) {
             return false;
         }
 
@@ -507,6 +507,7 @@ public class AutoEaterClient implements ClientModInitializer {
     }
 
     private static void stopEating(Minecraft client, TickState state) {
+        if (!state.eating) return;
         forceReleaseUseAction(client);
 
         if (client.player != null
@@ -559,7 +560,10 @@ public class AutoEaterClient implements ClientModInitializer {
         return state.clientTicks < state.cancelUntilTick;
     }
 
-    private static boolean hasFoodComponent(ItemStack stack) {
-        return stack.has(DataComponents.FOOD);
+    private static boolean isConsumableFood(ItemStack stack) {
+        // Fish buckets carry FOOD for feeding mobs, but cannot be consumed by players.
+        return !stack.isEmpty()
+                && stack.has(DataComponents.FOOD)
+                && stack.has(DataComponents.CONSUMABLE);
     }
 }
